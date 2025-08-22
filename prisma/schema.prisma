@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// --- MODELO PRINCIPAL DE USUARIO (ACTUALIZADO) ---
+model User {
+  id        String   @id @default(cuid())
+  githubId  Int      @unique
+  username  String   @unique
+  email     String?
+  avatarUrl String
+  role      String   @default("MEMBER") // Roles: MEMBER, ADMIN, INTEGRATOR
+  createdAt DateTime @default(now())
+
+  // Balances de Gamificación
+  pointsBalance Int @default(0)
+
+  // Relaciones
+  profile            Profile?
+  metrics            Metric[]
+  team               Team?             @relation(fields: [teamId], references: [id])
+  teamId             String?
+  activityLog        ActivityLog[]
+  pointLedgerEntries PointLedger[]
+  assignedBadges     UserBadge[]
+}
+
+
+// --- MODELOS ORIGINALES (CONSERVADOS) ---
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+  level  Int    @default(1)
+  bio    String?
+}
+
+model Metric {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  points    Int      @default(0) // Puede ser un total histórico o específico
+  commits   Int      @default(0)
+  prs       Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model Team {
+  id      String   @id @default(cuid())
+  name    String
+  members User[]
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // Ej: "COMMIT", "PR_OPENED"
+  metadata  Json
+  createdAt DateTime @default(now())
+}
+
+
+// --- LOG DE EVENTOS CRUDOS DE GITHUB (ANTES 'Event') ---
+model github_events {
+  id               String   @id @default(cuid())
+  delivery_id      String   @unique
+  event_type       String
+  action           String?
+  repo_full_name   String?
+  sender_login     String?
+  payload          Json
+  processed_status String   @default("stored") // Estados: 'stored', 'processing', 'processed_ok', 'failed_user_not_found', 'failed_rule_error'
+  received_at      DateTime @default(now())
+
+  @@index([event_type])
+  @@index([repo_full_name])
+  @@index([sender_login])
+}
+
+
+// --- CORAZÓN DE LA GAMIFICACIÓN: LIBRO MAYOR DE PUNTOS (NUEVO) ---
+model PointLedger {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  points       Int
+  ruleKey      String
+  ruleVersion  String   @default("v1.0")
+  entityId     String
+  notes        String?
+  isReversible Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+
+// --- SISTEMA DE BADGES (NUEVO) ---
+model Badge {
+  id          String      @id @default(cuid())
+  name        String
+  description String
+  criteria    Json
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  badgeId    String
+  badge      Badge    @relation(fields: [badgeId], references: [id])
+  obtainedAt DateTime @default(now())
+  metadata   Json?
+
+  @@unique([userId, badgeId])
+}
