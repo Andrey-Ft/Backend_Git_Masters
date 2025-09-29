@@ -11,36 +11,32 @@ datasource db {
 }
 
 
-// --- MODELO PRINCIPAL DE USUARIO (ACTUALIZADO) ---
+// --- MODELO PRINCIPAL DE USUARIO ---
 model User {
-  id        String   @id @default(cuid())
-  githubId  Int      @unique
-  username  String   @unique
-  email     String?
-  avatarUrl String
-  role      String   @default("MEMBER") // Roles: MEMBER, ADMIN, INTEGRATOR
-  createdAt DateTime @default(now())
-
-  // Balances de Gamificación
-  pointsBalance Int @default(0)
-
-  // Relaciones
-  profile            Profile?
-  metrics            Metric[]
-  team               Team?             @relation(fields: [teamId], references: [id])
-  teamId             String?
-  activityLog        ActivityLog[]
-  pointLedgerEntries PointLedger[]
-  assignedBadges     UserBadge[]
+  id                   String        @id @default(cuid())
+  githubId             Int           @unique
+  username             String        @unique
+  email                String?
+  avatarUrl            String
+  role                 String        @default("MEMBER")
+  createdAt            DateTime      @default(now())
+  pointsBalance        Int           @default(0)
+  profile              Profile?
+  metrics              Metric[]
+  team                 Team?         @relation(fields: [teamId], references: [id])
+  teamId               String?
+  activityLog          ActivityLog[]
+  pointLedgerEntries   PointLedger[]
+  assignedBadges       UserBadge[]
 }
 
 
-// --- MODELOS ORIGINALES (CONSERVADOS) ---
+// --- OTROS MODELOS ---
 model Profile {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
-  level  Int    @default(1)
+  id     String  @id @default(cuid())
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id])
+  level  Int     @default(1)
   bio    String?
 }
 
@@ -48,14 +44,14 @@ model Metric {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  points    Int      @default(0) // Puede ser un total histórico o específico
+  points    Int      @default(0)
   commits   Int      @default(0)
   prs       Int      @default(0)
   updatedAt DateTime @updatedAt
 }
 
 model Team {
-  id      String   @id @default(cuid())
+  id      String @id @default(cuid())
   name    String
   members User[]
 }
@@ -64,31 +60,28 @@ model ActivityLog {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  type      String   // Ej: "COMMIT", "PR_OPENED"
+  type      String
   metadata  Json
   createdAt DateTime @default(now())
 }
 
+// --- LOG DE EVENTOS CRUDOS DE GITHUB (SIN MAP) ---
+model GithubEvent {
+  id              String   @id @default(cuid())
+  deliveryId      String   @unique
+  eventType       String
+  action          String?
+  repoFullName    String?
+  senderLogin     String?
+  payload         Json
+  processedStatus String   @default("stored")
+  receivedAt      DateTime @default(now())
 
-// --- LOG DE EVENTOS CRUDOS DE GITHUB (ANTES 'Event') ---
-model github_events {
-  id               String   @id @default(cuid())
-  delivery_id      String   @unique
-  event_type       String
-  action           String?
-  repo_full_name   String?
-  sender_login     String?
-  payload          Json
-  processed_status String   @default("stored") // Estados: 'stored', 'processing', 'processed_ok', 'failed_user_not_found', 'failed_rule_error'
-  received_at      DateTime @default(now())
-
-  @@index([event_type])
-  @@index([repo_full_name])
-  @@index([sender_login])
+  @@index([eventType])
+  @@index([repoFullName])
+  @@index([senderLogin])
 }
 
-
-// --- CORAZÓN DE LA GAMIFICACIÓN: LIBRO MAYOR DE PUNTOS (NUEVO) ---
 model PointLedger {
   id           String   @id @default(cuid())
   userId       String
@@ -104,8 +97,6 @@ model PointLedger {
   @@index([userId, createdAt])
 }
 
-
-// --- SISTEMA DE BADGES (NUEVO) ---
 model Badge {
   id          String      @id @default(cuid())
   name        String

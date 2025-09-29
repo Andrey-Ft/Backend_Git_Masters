@@ -1,7 +1,11 @@
-// src/modules/auth/routes/auth.routes.js
 import express from "express";
 const router = express.Router();
-import { githubCallback, getProfile, loginWithGitHub, logout } from "../controller/auth.controller.js";
+import { 
+  githubCallback, 
+  getProfile, 
+  loginWithGitHub, 
+  logout 
+} from "../controller/auth.controller.js";
 import requireAuth from "../../../shared/middlewares/auth.middleware.js";
 
 // Ruta para iniciar la autenticación con GitHub
