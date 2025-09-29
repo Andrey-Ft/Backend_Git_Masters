@@ -1,80 +1,66 @@
+import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
-
-const DB_PATH = path.resolve('.data/github_events.json');
 
 class FileEventStore {
-  constructor() {
-    this.file = DB_PATH;
-    this.cache = null; // lazy load
+  constructor(filePath = path.join(process.cwd(), '.data', 'events.json')) {
+    this.filePath = filePath;
+    this.events = this._load();
   }
 
-  async _load() {
-    if (!this.cache) {
-      this.cache = await readJson(this.file, { events: [], byDelivery: {} });
+  _load() {
+    try {
+      // ✅ CORRECCIÓN 2: Reemplazar la función inexistente 'readJson' por la implementación correcta.
+      // Se utiliza fs.readFileSync para leer el contenido del archivo de forma síncrona
+      // y JSON.parse para convertir el string a un objeto JavaScript.
+      const fileContent = fs.readFileSync(this.filePath, 'utf-8');
+      return JSON.parse(fileContent);
+    } catch (error) {
+      // Si el archivo no existe o hay un error de parseo, se inicia con un array vacío.
+      if (error.code === 'ENOENT') {
+        return [];
+      }
+      throw error;
     }
-    return this.cache;
   }
 
-  async _save() {
-    await writeJson(this.file, this.cache);
-  }
-
-  async save(event) {
-    const db = await this._load();
-    if (event.delivery_id && db.byDelivery[event.delivery_id]) {
-      return db.byDelivery[event.delivery_id]; // idempotencia
+  _save() {
+    const dir = path.dirname(this.filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
-    const id = event.id || crypto.randomUUID();
-    const record = { ...event, id };
-    db.events.push(record);
-    if (record.delivery_id) db.byDelivery[record.delivery_id] = record;
-    await this._save();
-    return record;
+    fs.writeFileSync(this.filePath, JSON.stringify(this.events, null, 2));
   }
 
-  async findById(id) {
-    const db = await this._load();
-    return db.events.find(e => e.id === id) || null;
+  add(event) {
+    this.events.push(event);
+    this._save();
+    return event;
   }
 
-  async findByDeliveryId(deliveryId) {
-    const db = await this._load();
-    return db.byDelivery[deliveryId] || null;
+  findById(id) {
+    return this.events.find(event => event.id === id);
   }
 
-  async search(filters = {}, pagination = {}) {
-    const db = await this._load();
-    let list = db.events;
+  search(criteria) {
+    // La lógica de carga ya está en el constructor, así que this.events está disponible.
+    let results = [...this.events];
 
-    if (filters.user) {
-      const v = String(filters.user).toLowerCase();
-      list = list.filter(e => (e.sender_login || '').toLowerCase().includes(v));
+    if (criteria.type) {
+      results = results.filter(event => event.type === criteria.type);
     }
-    if (filters.repo) {
-      const v = String(filters.repo).toLowerCase();
-      list = list.filter(e => (e.repo_full_name || '').toLowerCase() === v);
+    if (criteria.user) {
+      results = results.filter(event => event.user === criteria.user);
     }
-    // ... (resto de los filtros)
+    if (criteria.repo) {
+      results = results.filter(event => event.repo === criteria.repo);
+    }
+    
+    // Ordenar por fecha, del más reciente al más antiguo.
+    results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    const sort = pagination.sort || 'received_at:desc';
-    const [field, dir] = sort.split(':');
-    list = list.slice().sort((a, b) => {
-      const av = a[field] || '';
-      const bv = b[field] || '';
-      if (av < bv) return dir === 'asc' ? -1 : 1;
-      if (av > bv) return dir === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    const total = list.length;
-    const page = Math.max(parseInt(pagination.page || '1', 10), 1);
-    const limit = Math.min(Math.max(parseInt(pagination.limit || '20', 10), 1), 100);
-    const start = (page - 1) * limit;
-    const items = list.slice(start, start + limit);
-
-    return { total, page, limit, items };
+    return results;
   }
 }
 
+// Se exporta como un singleton para mantener una única instancia en toda la aplicación.
 export default new FileEventStore();

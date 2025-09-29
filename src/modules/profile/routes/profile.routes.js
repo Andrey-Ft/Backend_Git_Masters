@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
-import { getUserProfile, updateUserProfile } from "../controller/profile.controller.js";
+import { 
+  getUserProfile, 
+  updateUserProfile,
+  getUserActivity,      // <-- AÑADIDO
+  getUserPointsHistory  // <-- AÑADIDO
+} from "../controller/profile.controller.js";
 import requireAuth from "../../../shared/middlewares/auth.middleware.js";
 
 const router = Router();
@@ -26,5 +31,13 @@ router.get("/", testBypassAuth, getUserProfile);
 
 // @route   PATCH /profile
 router.patch("/", testBypassAuth, updateUserProfile);
+
+// --- NUEVAS RUTAS DE HISTORIAL ---
+
+// @route   GET /profile/activity
+router.get("/activity", testBypassAuth, getUserActivity);
+
+// @route   GET /profile/points-history
+router.get("/points-history", testBypassAuth, getUserPointsHistory);
 
 export default router;

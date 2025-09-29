@@ -17,10 +17,10 @@ export const getProfileByUserId = async (userId) => {
       id: true,
       githubId: true,
       username: true,
-      email: true, // <--- AÑADIDO
+      email: true,
       avatarUrl: true,
       role: true,
-      pointsBalance: true, // Tus webhooks ya llenan esto, aquí solo lo leemos
+      pointsBalance: true,
       createdAt: true,
       profile: {
         select: {
@@ -61,7 +61,7 @@ export const getProfileByUserId = async (userId) => {
     githubId: userProfile.githubId,
     username: userProfile.username,
     avatarUrl: userProfile.avatarUrl,
-    email: userProfile.email, // <--- AÑADIDO
+    email: userProfile.email,
     role: userProfile.role,
     points: userProfile.pointsBalance,
     memberSince: userProfile.createdAt,
@@ -94,9 +94,6 @@ export const updateProfile = async (userId, data) => {
     where: { id: userId },
     data: {
       profile: {
-        // 'upsert' es perfecto aquí:
-        // - Si el usuario no tiene perfil, lo CREA con el nuevo bio.
-        // - Si ya tiene perfil, lo ACTUALIZA con el nuevo bio.
         upsert: {
           create: { bio },
           update: { bio },
@@ -114,4 +111,42 @@ export const updateProfile = async (userId, data) => {
   });
 
   return updatedUser.profile;
+};
+
+// --- FUNCIONES NUEVAS PARA EL HISTORIAL ---
+
+/**
+ * @description Obtiene el log de actividad de un usuario.
+ * @param {string} userId - El ID del usuario.
+ * @returns {Promise<Array>} Un arreglo con los registros de actividad.
+ */
+export const getActivityLogByUserId = async (userId) => {
+  return prisma.activityLog.findMany({
+    where: {
+      userId: userId,
+    },
+    // Traemos los 20 más recientes para no sobrecargar
+    take: 20, 
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+};
+
+/**
+ * @description Obtiene el historial de puntos de un usuario.
+ * @param {string} userId - El ID del usuario.
+ * @returns {Promise<Array>} Un arreglo con el historial de puntos.
+ */
+export const getPointsHistoryByUserId = async (userId) => {
+  return prisma.pointLedger.findMany({
+    where: {
+      userId: userId,
+    },
+    // Traemos los 20 más recientes
+    take: 20,
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
 };

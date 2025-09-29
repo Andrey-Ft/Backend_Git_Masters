@@ -1,5 +1,3 @@
-// RUTA: src/modules/rules-points/engine/rules/pr.rule.js
-
 import { applyPoints } from '../../service/point.service.js';
 import prisma from '../../../../config/prisma.js';
 import { subDays } from 'date-fns';
