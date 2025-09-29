@@ -1,28 +1,9 @@
-import eventStore from '../../../shared/persistence/eventStore.js';
+import * as eventsService from '../service/events.service.js';
 
-function pick(obj, keys) {
-  const out = {};
-  for (const k of keys) {
-    if (k in obj) {
-      out[k] = obj[k];
-    }
-  }
-  return out;
-}
-
-function mapPublicItem(e, includePayload = false) {
-  const base = pick(e, [
-    'id', 'delivery_id', 'event_type', 'action', 'repo_full_name', 'sender_login',
-    'commits_count', 'github_created_at', 'received_at', 'processed_status'
-  ]);
-  if (includePayload) {
-    base.payload = e.payload;
-  }
-  return base;
-}
-
+// Handler para la ruta de listado de eventos
 export const listEvents = async (req, res) => {
   try {
+    // Preparamos los datos de la solicitud
     const filters = {
       user: req.query.user,
       repo: req.query.repo,
@@ -39,28 +20,34 @@ export const listEvents = async (req, res) => {
       sort: req.query.sort || 'received_at:desc',
     };
 
-    const { total, page, limit, items } = await eventStore.search(filters, pagination);
-    return res.json({
-      page,
-      limit,
-      total,
-      items: items.map(e => mapPublicItem(e, false))
-    });
+    // Llamamos al servicio (la lógica de negocio)
+    const result = await eventsService.searchEvents(filters, pagination);
+    
+    // Enviamos la respuesta
+    return res.json(result);
   } catch (err) {
     console.error('Error al listar eventos:', err);
     res.status(500).json({ error: 'Internal error' });
   }
 };
 
+// Handler para la ruta de obtener un evento por ID
 export const getEventById = async (req, res) => {
   try {
+    // Preparamos los datos de la solicitud
     const id = req.params.id;
     const includePayload = (req.query.include || '').split(',').includes('payload');
-    const e = await eventStore.findById(id);
+
+    // Llamamos al servicio (la lógica de negocio)
+    const e = await eventsService.getEventById(id, includePayload);
+
+    // Manejo de la respuesta
     if (!e) {
       return res.status(404).json({ error: 'Not found' });
     }
-    return res.json(mapPublicItem(e, includePayload));
+
+    // Enviamos la respuesta
+    return res.json(e);
   } catch (err) {
     console.error('Error al obtener evento:', err);
     res.status(500).json({ error: 'Internal error' });
