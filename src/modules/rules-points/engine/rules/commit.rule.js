@@ -158,3 +158,4 @@ export const processCommitRule = async (event, user) => {
   }
   console.log('--- [CommitRule-DEBUG] --- Proceso finalizado ---\n');
 };
+
