@@ -1,5 +1,5 @@
 // RUTA: src/modules/rules-points/engine/rules/branch.rule.js
-
+// (El código de este archivo es el mismo que en la respuesta anterior)
 import { applyPoints } from '../../service/point.service.js';
 
 const VALID_BRANCH_NAME_REGEX = /^[A-Z]+-\d+_[a-z0-9]+_[a-z0-9-_]+$/;
@@ -11,6 +11,7 @@ const POINTS = {
   FORCE_PUSH_PENALTY: -100,
 };
 
+// ... (resto del código sin cambios)
 const handleBranchCreation = async (event, user) => {
   if (event.payload.ref_type !== 'branch') return;
   const branchName = event.payload.ref;
