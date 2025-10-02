@@ -25,3 +25,4 @@ async function testBypassAuth(req, res, next) {
 router.get('/', testBypassAuth, fetchDashboard);
 
 export default router;
+
