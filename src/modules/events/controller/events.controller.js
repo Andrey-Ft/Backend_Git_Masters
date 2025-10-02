@@ -3,22 +3,15 @@ import * as eventsService from '../service/events.service.js';
 // Handler para la ruta de listado de eventos
 export const listEvents = async (req, res) => {
   try {
-    // Preparamos los datos de la solicitud
-    const filters = {
-      user: req.query.user,
-      repo: req.query.repo,
-      type: req.query.type,
-      action: req.query.action,
-      since: req.query.since,
-      until: req.query.until,
-      processed: req.query.processed,
-    };
-
-    const pagination = {
-      page: req.query.page,
-      limit: req.query.limit,
-      sort: req.query.sort || 'received_at:desc',
-    };
+    // Usamos destructuring para extraer los parámetros de forma más limpia
+    const { 
+      user, repo, type, action, since, until, processed, 
+      page, limit, sort = 'received_at:desc' 
+    } = req.query;
+    
+    // Creamos los objetos de configuración para el servicio
+    const filters = { user, repo, type, action, since, until, processed };
+    const pagination = { page, limit, sort };
 
     // Llamamos al servicio (la lógica de negocio)
     const result = await eventsService.searchEvents(filters, pagination);
