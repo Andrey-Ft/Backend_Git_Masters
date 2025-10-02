@@ -1,19 +1,9 @@
-// RUTA: src/modules/gamification/services/point.service.js
+// RUTA: src/modules/rules-points/service/point.service.js
 
 import prisma from '../../../config/prisma.js';
 
 /**
  * Otorga o deduce puntos a un usuario de forma transaccional.
- * Esta es la única función que debe escribir en el PointLedger y actualizar balances.
- * @param {object} data - Datos para la transacción.
- * @param {string} data.userId - ID del usuario.
- * @param {number} data.points - Puntos a otorgar (puede ser negativo).
- * @param {string} data.ruleKey - Identificador de la regla (ej: "commit.valid_message").
- * @param {string} data.entityId - ID del objeto relacionado (commit SHA, PR número, etc.).
- * @param {string} [data.ruleVersion='v1.0'] - Versión de la regla.
- * @param {string} [data.notes] - Detalles sobre el cálculo.
- * @param {boolean} [data.isReversible=true] - Si la transacción puede ser revertida.
- * @returns {Promise<object | null>} La entrada creada en el libro mayor o null si no se aplicaron puntos.
  */
 export const applyPoints = async ({
   userId,
@@ -24,14 +14,10 @@ export const applyPoints = async ({
   notes,
   isReversible = true,
 }) => {
-  // No crear entradas en el libro mayor para 0 puntos
   if (points === 0) return null;
 
   try {
-    // Usamos una transacción para garantizar que ambas operaciones (crear y actualizar)
-    // se completen con éxito o fallen juntas.
     const [ledgerEntry] = await prisma.$transaction([
-      // 1. Crear la entrada en el libro mayor (el registro histórico)
       prisma.pointLedger.create({
         data: {
           userId,
@@ -43,7 +29,6 @@ export const applyPoints = async ({
           isReversible,
         },
       }),
-      // 2. Actualizar el balance total de puntos del usuario
       prisma.user.update({
         where: { id: userId },
         data: {
@@ -58,7 +43,97 @@ export const applyPoints = async ({
     return ledgerEntry;
   } catch (error) {
     console.error(`[PointService] Falló la transacción de puntos para el usuario ${userId}:`, error);
-    // Propagamos el error para que el motor de reglas lo maneje
     throw error;
   }
+};
+
+/**
+ * Obtiene los datos del dashboard para un usuario específico.
+ * @param {string} userId - El ID del usuario.
+ * @returns {Promise<object|null>} Los datos del perfil o null si no se encuentra.
+ */
+export const getDashboardData = async (userId) => {
+  const userProfile = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      username: true,
+      avatarUrl: true,
+      pointsBalance: true,
+      createdAt: true,
+      profile: {
+        select: { level: true },
+      },
+      assignedBadges: {
+        select: {
+          badge: {
+            select: { name: true, description: true },
+          },
+          obtainedAt: true,
+        },
+        orderBy: {
+          obtainedAt: 'desc',
+        },
+      },
+      pointLedgerEntries: {
+        take: 10, // Obtener las últimas 10 transacciones de puntos
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          points: true,
+          notes: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (!userProfile) {
+    return null;
+  }
+
+  // Formateamos las insignias para que sean más fáciles de usar en el frontend
+  const badges = userProfile.assignedBadges.map(ab => ({
+    name: ab.badge.name,
+    description: ab.badge.description,
+    obtainedAt: ab.obtainedAt,
+  }));
+
+  return {
+    username: userProfile.username,
+    avatarUrl: userProfile.avatarUrl,
+    memberSince: userProfile.createdAt,
+    totalPoints: userProfile.pointsBalance,
+    level: userProfile.profile?.level || 1,
+    recentActivity: userProfile.pointLedgerEntries,
+    badges: badges,
+  };
+};
+
+/**
+ * Obtiene los 10 usuarios con más puntos para el ranking.
+ * @returns {Promise<Array>} Una lista de los mejores usuarios.
+ */
+export const getLeaderboard = async () => {
+  const topUsers = await prisma.user.findMany({
+    take: 10,
+    orderBy: {
+      pointsBalance: 'desc',
+    },
+    select: {
+      username: true,
+      avatarUrl: true,
+      pointsBalance: true,
+      profile: {
+        select: { level: true },
+      },
+    },
+  });
+
+  return topUsers.map(user => ({
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+    totalPoints: user.pointsBalance,
+    level: user.profile?.level || 1,
+  }));
 };

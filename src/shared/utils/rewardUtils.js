@@ -1,4 +1,4 @@
-import prisma from '../../prisma/client.js';
+import prisma from '../../config/prisma.js';
 
 export const updatePoints = async (userId, points) => {
   await prisma.metric.update({
