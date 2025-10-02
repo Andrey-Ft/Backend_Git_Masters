@@ -4,20 +4,26 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// --- Constantes para configuración ---
+const JWT_EXPIRATION_TIME = "1d";
+const AUTH_COOKIE_NAME = "token";
+const SESSION_COOKIE_NAME = 'connect.sid';
+const ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+
 // Se encarga de crear el token JWT y ponerlo en la cookie de la respuesta.
 export const generateAndSetToken = (res, user) => {
-  const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "1d" });
+  const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRATION_TIME });
 
-  res.cookie("token", token, {
+  res.cookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Strict",
-    maxAge: 24 * 60 * 60 * 1000, // 1 día
+    maxAge: ONE_DAY_IN_MILLISECONDS,
   });
 };
 
 // Se encarga de buscar el perfil del usuario y formatear los datos.
-// No recibe 'res', solo los datos que necesita.
+// (Esta función no cambia, se deja igual)
 export const getCompleteProfile = async (githubId) => {
   const user = await prisma.user.findUnique({
     where: { githubId: githubId },
@@ -33,7 +39,7 @@ export const getCompleteProfile = async (githubId) => {
   });
 
   if (!user) {
-    return null; // Devuelve nulo si no se encuentra
+    return null;
   }
 
   const badges = user.assignedBadges.map((ub) => ({
@@ -64,7 +70,8 @@ export const cleanupSession = (req, res, next) => {
         return res.status(500).json({ message: "No se pudo cerrar la sesión." });
       }
 
-      res.clearCookie('connect.sid', {
+      // Usamos la constante para el nombre de la cookie de sesión
+      res.clearCookie(SESSION_COOKIE_NAME, {
         path: '/',
       });
 
